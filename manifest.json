@@ -1,0 +1,13 @@
+{
+  "name": "论文 · 作息看板",
+  "short_name": "论文看板",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f1ea",
+  "theme_color": "#f4f1ea",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" }
+  ]
+}

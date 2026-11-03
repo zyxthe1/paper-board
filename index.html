@@ -11,6 +11,7 @@
 <meta name="theme-color" content="#f4f1ea">
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" type="image/png" href="icon.png">
+<link rel="manifest" href="manifest.json">
 <style>
   :root{
     --bg:#f4f1ea; --card:#fff; --ink:#1c1c1e; --muted:#77736b;
@@ -617,6 +618,13 @@
   setInterval(renderNow, 20000);
   setInterval(function(){ renderNow(); renderTimeline(); }, 60000);
   document.addEventListener("visibilitychange", function(){ if (!document.hidden) renderAll(); });
+
+  // 离线可用：有网拿最新版，没网读缓存
+  if ("serviceWorker" in navigator && location.protocol === "https:") {
+    window.addEventListener("load", function(){
+      navigator.serviceWorker.register("sw.js").catch(function(){});
+    });
+  }
 })();
 </script>
 </body>
