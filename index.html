@@ -41,20 +41,20 @@
   .banner{background:#fff3cd;border:1px solid #eadba0;color:#7a5c00;font-size:13px;padding:9px 14px;border-radius:10px;margin-bottom:14px;display:none}
 
   /* ---------- quick actions ---------- */
-  .quick{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:18px}
+  .quick{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
   .qb{font-family:inherit;position:relative;display:flex;flex-direction:column;align-items:flex-start;
-      justify-content:center;gap:3px;padding:14px 16px;min-height:76px;border-radius:14px;
+      justify-content:center;gap:5px;padding:18px 20px;min-height:104px;border-radius:16px;
       border:1px solid var(--line);background:#fff;color:var(--ink);
-      font-size:15px;font-weight:600;cursor:pointer;text-align:left;
+      font-size:18px;font-weight:600;cursor:pointer;text-align:left;
       transition:transform .1s,border-color .15s,background .15s;
       -webkit-tap-highlight-color:transparent}
-  .qb em{font-style:normal;font-size:12.5px;font-weight:400;color:var(--muted);
+  .qb em{font-style:normal;font-size:13.5px;font-weight:400;color:var(--muted);
          font-variant-numeric:tabular-nums}
   .qb:hover{border-color:#c9bfa9}
   .qb:active{transform:scale(.97)}
   .qb.on{background:var(--green-soft);border-color:#b9d6c5}
   .qb.on em{color:var(--green)}
-  .qb.on::after{content:"✓";position:absolute;top:12px;right:14px;font-size:13px;color:var(--green)}
+  .qb.on::after{content:"✓";position:absolute;top:14px;right:16px;font-size:16px;color:var(--green)}
 
   /* ---------- week goal ---------- */
   .goal{display:flex;gap:14px;align-items:baseline;background:#fff;border:1px solid var(--line);
@@ -156,8 +156,9 @@
     body{padding:20px 14px 50px}
     main{grid-template-columns:1fr}
     .date{font-size:22px}
-    .quick{grid-template-columns:repeat(2,1fr);gap:9px}
-    .qb{min-height:70px;padding:12px 14px}
+    .quick{grid-template-columns:repeat(2,1fr);gap:11px}
+    .qb{min-height:112px;padding:18px 20px;font-size:19px}
+    .qb em{font-size:14px}
   }
 </style>
 </head>
@@ -178,9 +179,7 @@
   <section class="quick" id="quick">
     <button class="qb" data-q="wake">起床<em>未记</em></button>
     <button class="qb" data-q="gym">健身<em>未完成</em></button>
-    <button class="qb" data-q="paper">论文<em>0h</em></button>
     <button class="qb" data-q="llm">大模型<em>未完成</em></button>
-    <button class="qb" data-q="shutdown">关电脑<em>未记</em></button>
     <button class="qb" data-q="bed">上床<em>未记</em></button>
   </section>
 
@@ -222,29 +221,12 @@
           <div class="ctl"><button class="toggle" id="gymBtn">未完成</button></div>
         </div>
 
-        <div class="row">
-          <div class="lbl">论文实际投入<em>只算真正推进的时间</em></div>
-          <div class="ctl">
-            <div class="stepper">
-              <button id="paperMinus">−</button>
-              <span id="paperVal">0<small>h</small></span>
-              <button id="paperPlus">＋</button>
-            </div>
-          </div>
-        </div>
 
         <div class="row">
           <div class="lbl">大模型 1 小时<em>固定时段 15:30</em></div>
           <div class="ctl"><button class="toggle" id="llmBtn">未完成</button></div>
         </div>
 
-        <div class="row">
-          <div class="lbl">关电脑<em>目标 22:30</em></div>
-          <div class="ctl">
-            <input type="time" id="shutdown">
-            <button class="ghost" data-now="shutdown">此刻</button>
-          </div>
-        </div>
 
         <div class="row">
           <div class="lbl">上床<em>目标 23:00 · 硬指标</em></div>
@@ -280,7 +262,7 @@
       <section class="card">
         <h2>本周</h2>
         <div class="stats">
-          <div class="stat"><div class="n" id="sPaper">0<small>h</small></div><div class="t">论文投入</div></div>
+          <div class="stat"><div class="n" id="sDays">0<small>/7</small></div><div class="t">本周出勤</div></div>
           <div class="stat"><div class="n" id="sGym">0<small>次</small></div><div class="t">健身</div></div>
           <div class="stat"><div class="n" id="sLlm">0<small>天</small></div><div class="t">大模型</div></div>
           <div class="stat"><div class="n" id="sStreak">0<small>天</small></div><div class="t">早睡连击</div></div>
@@ -427,15 +409,15 @@
 
   function sumWeek() {
     const [a, b] = weekRange();
-    let paper = 0, gym = 0, llm = 0;
+    let gym = 0, llm = 0, days = 0;
     for (let t = a.getTime(); t <= b.getTime(); t += dayMs) {
       const d = store.days[ymd(new Date(t))];
       if (!d) continue;
-      paper += +d.paperHours || 0;
       if (d.gym) gym++;
       if (d.llm) llm++;
+      if (d.wake || d.bed || d.gym || d.llm) days++;
     }
-    return { paper, gym, llm };
+    return { gym, llm, days };
   }
 
   function streak() {
@@ -527,11 +509,9 @@
   function renderDay() {
     const d = day();
     setInput($("wake"), d.wake);
-    setInput($("shutdown"), d.shutdown);
     setInput($("bed"), d.bed);
     setInput($("focusTask"), d.focus);
     setInput($("noteBox"), d.note);
-    $("paperVal").innerHTML = (Math.round((+d.paperHours || 0) * 10) / 10) + "<small>h</small>";
 
     const gym = $("gymBtn");
     gym.classList.toggle("on", !!d.gym);
@@ -554,15 +534,13 @@
     };
     set("wake", d.wake || "未记", !!d.wake);
     set("gym", d.gym ? "已完成" : "未完成", !!d.gym);
-    set("paper", (Math.round((+d.paperHours || 0) * 10) / 10) + "h", (+d.paperHours || 0) > 0);
     set("llm", d.llm ? "已完成" : "未完成", !!d.llm);
-    set("shutdown", d.shutdown || "未记", !!d.shutdown);
     set("bed", d.bed || "未记", !!d.bed);
   }
 
   function renderStats() {
     const w = sumWeek();
-    $("sPaper").innerHTML = (Math.round(w.paper * 10) / 10) + "<small>h</small>";
+    $("sDays").innerHTML = w.days + "<small>/7</small>";
     $("sGym").innerHTML = w.gym + "<small>次</small>";
     $("sLlm").innerHTML = w.llm + "<small>天</small>";
     $("sStreak").innerHTML = streak() + "<small>天</small>";
@@ -595,7 +573,7 @@
   /* ================= 交互 ================= */
   function touch(fn) { fn(); save(); renderAll(); }
 
-  ["wake", "shutdown", "bed"].forEach(function(field){
+  ["wake", "bed"].forEach(function(field){
     const el = $(field);
     el.addEventListener("change", function(){ touch(function(){ day()[field] = el.value; }); });
   });
@@ -618,8 +596,6 @@
       const q = btn.dataset.q;
       if (q === "gym" || q === "llm") {
         touch(function(){ const d = day(); d[q] = !d[q]; });
-      } else if (q === "paper") {
-        touch(function(){ const d = day(); d.paperHours = Math.min(16, (+d.paperHours || 0) + 0.5); });
       } else {
         const now = new Date();
         const v = pad(now.getHours()) + ":" + pad(now.getMinutes());
@@ -628,12 +604,7 @@
     });
   });
 
-  $("paperPlus").addEventListener("click", function(){
-    touch(function(){ const d = day(); d.paperHours = Math.min(16, (+d.paperHours || 0) + 0.5); });
-  });
-  $("paperMinus").addEventListener("click", function(){
-    touch(function(){ const d = day(); d.paperHours = Math.max(0, (+d.paperHours || 0) - 0.5); });
-  });
+
 
   $("focusTask").addEventListener("input", function(){ day().focus = this.value; save(); });
   $("noteBox").addEventListener("input", function(){ day().note = this.value; save(); });
