@@ -40,6 +40,22 @@
 
   .banner{background:#fff3cd;border:1px solid #eadba0;color:#7a5c00;font-size:13px;padding:9px 14px;border-radius:10px;margin-bottom:14px;display:none}
 
+  /* ---------- quick actions ---------- */
+  .quick{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:18px}
+  .qb{font-family:inherit;position:relative;display:flex;flex-direction:column;align-items:flex-start;
+      justify-content:center;gap:3px;padding:14px 16px;min-height:76px;border-radius:14px;
+      border:1px solid var(--line);background:#fff;color:var(--ink);
+      font-size:15px;font-weight:600;cursor:pointer;text-align:left;
+      transition:transform .1s,border-color .15s,background .15s;
+      -webkit-tap-highlight-color:transparent}
+  .qb em{font-style:normal;font-size:12.5px;font-weight:400;color:var(--muted);
+         font-variant-numeric:tabular-nums}
+  .qb:hover{border-color:#c9bfa9}
+  .qb:active{transform:scale(.97)}
+  .qb.on{background:var(--green-soft);border-color:#b9d6c5}
+  .qb.on em{color:var(--green)}
+  .qb.on::after{content:"✓";position:absolute;top:12px;right:14px;font-size:13px;color:var(--green)}
+
   /* ---------- week goal ---------- */
   .goal{display:flex;gap:14px;align-items:baseline;background:#fff;border:1px solid var(--line);
         border-radius:var(--radius);padding:13px 18px;margin-bottom:18px}
@@ -140,6 +156,8 @@
     body{padding:20px 14px 50px}
     main{grid-template-columns:1fr}
     .date{font-size:22px}
+    .quick{grid-template-columns:repeat(2,1fr);gap:9px}
+    .qb{min-height:70px;padding:12px 14px}
   }
 </style>
 </head>
@@ -156,6 +174,15 @@
       <span class="pill" id="clock">--:--</span>
     </div>
   </header>
+
+  <section class="quick" id="quick">
+    <button class="qb" data-q="wake">起床<em>未记</em></button>
+    <button class="qb" data-q="gym">健身<em>未完成</em></button>
+    <button class="qb" data-q="paper">论文<em>0h</em></button>
+    <button class="qb" data-q="llm">大模型<em>未完成</em></button>
+    <button class="qb" data-q="shutdown">关电脑<em>未记</em></button>
+    <button class="qb" data-q="bed">上床<em>未记</em></button>
+  </section>
 
   <div class="goal">
     <span class="k">本周目标</span>
@@ -513,6 +540,24 @@
     const llm = $("llmBtn");
     llm.classList.toggle("on", !!d.llm);
     llm.textContent = d.llm ? "已完成" : "未完成";
+
+    renderQuick();
+  }
+
+  function renderQuick() {
+    const d = day();
+    const set = function(q, text, on) {
+      const el = document.querySelector('[data-q="' + q + '"]');
+      if (!el) return;
+      el.classList.toggle("on", !!on);
+      el.querySelector("em").textContent = text;
+    };
+    set("wake", d.wake || "未记", !!d.wake);
+    set("gym", d.gym ? "已完成" : "未完成", !!d.gym);
+    set("paper", (Math.round((+d.paperHours || 0) * 10) / 10) + "h", (+d.paperHours || 0) > 0);
+    set("llm", d.llm ? "已完成" : "未完成", !!d.llm);
+    set("shutdown", d.shutdown || "未记", !!d.shutdown);
+    set("bed", d.bed || "未记", !!d.bed);
   }
 
   function renderStats() {
@@ -566,6 +611,22 @@
 
   $("gymBtn").addEventListener("click", function(){ touch(function(){ day().gym = !day().gym; }); });
   $("llmBtn").addEventListener("click", function(){ touch(function(){ day().llm = !day().llm; }); });
+
+  // 首屏大按钮：打开就能一秒记完
+  document.querySelectorAll("[data-q]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      const q = btn.dataset.q;
+      if (q === "gym" || q === "llm") {
+        touch(function(){ const d = day(); d[q] = !d[q]; });
+      } else if (q === "paper") {
+        touch(function(){ const d = day(); d.paperHours = Math.min(16, (+d.paperHours || 0) + 0.5); });
+      } else {
+        const now = new Date();
+        const v = pad(now.getHours()) + ":" + pad(now.getMinutes());
+        touch(function(){ day()[q] = v; });
+      }
+    });
+  });
 
   $("paperPlus").addEventListener("click", function(){
     touch(function(){ const d = day(); d.paperHours = Math.min(16, (+d.paperHours || 0) + 0.5); });
