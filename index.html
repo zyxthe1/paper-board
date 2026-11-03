@@ -110,6 +110,33 @@
   .stepper span{min-width:52px;text-align:center;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
   .stepper span small{font-size:11px;font-weight:400;color:var(--muted)}
 
+  /* ---------- training ---------- */
+  .train-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
+  .train-top h2{margin:0}
+  .train-total{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .train-total b{color:var(--ink);font-size:14px}
+  .train-plan{display:flex;align-items:baseline;gap:8px;margin-bottom:11px;font-size:14.5px;font-weight:600}
+  .train-plan span{font-size:11.5px;color:var(--muted);font-weight:400}
+  .ex{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:11px;
+      border:1px solid #f1ece2;background:#fcfbf8;margin-bottom:7px;cursor:pointer;
+      -webkit-tap-highlight-color:transparent;transition:background .12s,border-color .12s}
+  .ex:active{transform:scale(.994)}
+  .ex .ex-name{flex:1;font-size:14px;font-weight:500;line-height:1.3}
+  .ex .ex-name small{display:block;font-size:11.5px;color:var(--muted);font-weight:400;margin-top:2px;
+      font-variant-numeric:tabular-nums}
+  .ex .pips{display:flex;gap:5px;flex:none}
+  .ex .pip{width:11px;height:11px;border-radius:50%;background:#e0d9cb;transition:background .15s}
+  .ex .pip.on{background:var(--green)}
+  .ex .undo{flex:none;width:27px;height:27px;border-radius:8px;border:1px solid var(--line);
+      background:#fff;color:var(--muted);font-size:15px;line-height:1;cursor:pointer;visibility:hidden}
+  .ex .undo.show{visibility:visible}
+  .ex.done{background:var(--green-soft);border-color:#b9d6c5}
+  .ex.done .ex-name small{color:var(--green)}
+  .stages{display:flex;gap:6px;margin-top:13px;flex-wrap:wrap}
+  .stages button{font-family:inherit;font-size:11.5px;padding:5px 10px;border-radius:999px;
+      border:1px solid var(--line);background:#fff;color:var(--muted);cursor:pointer}
+  .stages button.on{background:#1c1c1e;border-color:#1c1c1e;color:#fff}
+
   /* ---------- timeline ---------- */
   .tl{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(7,auto);
        grid-auto-flow:column;gap:1px 16px}
@@ -243,6 +270,16 @@
         <textarea class="note" id="noteBox" placeholder="今天卡在哪？明天第一件事是什么？（周日复盘用）"></textarea>
       </section>
 
+      <section class="card train">
+        <div class="train-top">
+          <h2>今日训练</h2>
+          <span class="train-total" id="trainTotal"></span>
+        </div>
+        <div class="train-plan" id="trainPlan"></div>
+        <div class="ex-list" id="exList"></div>
+        <div class="stages" id="stageRow"></div>
+      </section>
+
       <section class="card">
         <h2>今天的时间块</h2>
         <div class="tl" id="timeline"></div>
@@ -305,7 +342,8 @@
     groupDate: "2026-12-23",   // 组会死线
     startDate: "2026-11-02",   // 第 1 周的周一
     targetBed: "23:00",
-    targetWake: "07:30"
+    targetWake: "07:30",
+    stage: 2
   };
 
   const WEEKS = [
@@ -571,9 +609,120 @@
     $("sleepBody").innerHTML = html;
   }
 
+
+  /* ================= 训练计划 ================= */
+  const TRAIN = {
+    U: { name: "U · 胸 / 背 / 肩", days: "周一 / 周四", ex: [
+      { n: "哑铃卧推（可上斜）", t: "3 × 8–12", s: [2, 2, 3, 3] },
+      { n: "高位下拉 / 辅助引体", t: "3 × 8–12", s: [2, 2, 3, 3] },
+      { n: "单臂哑铃划船", t: "2 × 每侧 10–12", s: [1, 2, 2, 2] },
+      { n: "哑铃侧平举", t: "2 × 12–15", s: [1, 1, 2, 2] },
+      { n: "俯卧撑（可选）", t: "1–2 × 8–15", s: [1, 1, 1, 2] }
+    ] },
+    L: { name: "L · 腿 / 手臂 / 核心", days: "周二 / 周五", ex: [
+      { n: "杯式深蹲 / 腿举", t: "3 × 8–12", s: [2, 2, 3, 3] },
+      { n: "哑铃罗马尼亚硬拉", t: "2 × 8–12", s: [1, 2, 2, 2] },
+      { n: "反向弓步 / 分腿蹲", t: "2 × 每侧 8–10", s: [1, 1, 2, 2] },
+      { n: "哑铃弯举", t: "2 × 10–12", s: [1, 2, 2, 2] },
+      { n: "绳索三头下压", t: "2 × 10–15", s: [1, 1, 2, 2] },
+      { n: "死虫式", t: "2 × 每侧 10", s: [1, 1, 2, 2] }
+    ] }
+  };
+  const STAGES = ["第 1–2 周", "第 3–4 周", "第 5–8 周", "第 9–12 周"];
+
+  function stageIdx() { return Math.min(3, Math.max(0, +store.config.stage || 0)); }
+
+  function todayPlan() {
+    const d = day();
+    if (d.plan === "U" || d.plan === "L") return d.plan;
+    const wd = new Date().getDay();
+    if (wd === 1 || wd === 4) return "U";
+    if (wd === 2 || wd === 5) return "L";
+    return "";
+  }
+
+  function renderStages() {
+    const st = stageIdx();
+    let h = "";
+    for (let i = 0; i < STAGES.length; i++) {
+      h += '<button data-stage="' + i + '"' + (i === st ? ' class="on"' : "") + ">" + STAGES[i] + "</button>";
+    }
+    $("stageRow").innerHTML = h;
+  }
+
+  function renderTrain() {
+    const st = stageIdx();
+    const plan = todayPlan();
+    const done = day().sets || {};
+    const list = $("exList"), planEl = $("trainPlan"), totalEl = $("trainTotal");
+    let html = "";
+
+    if (!plan) {
+      planEl.innerHTML = "休息日 <span>不补练、不追消耗</span>";
+      totalEl.textContent = "";
+      list.innerHTML =
+        '<div class="ex" data-plan="U"><div class="ex-name">练 U · 胸背肩</div></div>' +
+        '<div class="ex" data-plan="L"><div class="ex-name">练 L · 腿手臂核心</div></div>';
+      renderStages();
+      return;
+    }
+
+    const p = TRAIN[plan];
+    planEl.innerHTML = p.name + " <span>" + p.days + '</span>';
+    let tot = 0, got = 0;
+    for (let i = 0; i < p.ex.length; i++) {
+      const ex = p.ex[i];
+      const target = ex.s[st];
+      const n = Math.min(target, +done[i] || 0);
+      tot += target; got += n;
+      let pips = "";
+      for (let k = 0; k < target; k++) pips += '<i class="pip' + (k < n ? " on" : "") + '"></i>';
+      html += '<div class="ex' + (n >= target ? " done" : "") + '" data-ex="' + i + '">' +
+        '<div class="ex-name">' + ex.n + "<small>" + ex.t + " · " + n + "/" + target + " 组</small></div>" +
+        '<div class="pips">' + pips + "</div>" +
+        '<button class="undo' + (n > 0 ? " show" : "") + '" data-undo="' + i + '">−</button>' +
+        "</div>";
+    }
+    list.innerHTML = html;
+    totalEl.innerHTML = "已完成 <b>" + got + "</b> / " + tot + " 组";
+    renderStages();
+  }
+
+  $("exList").addEventListener("click", function(e) {
+    const pbtn = e.target.closest("[data-plan]");
+    if (pbtn) { touch(function() { day().plan = pbtn.dataset.plan; }); return; }
+
+    const row = e.target.closest("[data-ex]");
+    if (!row) return;
+    const plan = todayPlan();
+    if (!plan) return;
+    const i = +row.dataset.ex;
+    const target = TRAIN[plan].ex[i].s[stageIdx()];
+    const undo = !!e.target.closest("[data-undo]");
+
+    touch(function() {
+      const d = day();
+      if (!d.sets) d.sets = {};
+      let n = +d.sets[i] || 0;
+      n = undo ? Math.max(0, n - 1) : Math.min(target, n + 1);
+      d.sets[i] = n;
+      let all = true;
+      for (let k = 0; k < TRAIN[plan].ex.length; k++) {
+        if ((+d.sets[k] || 0) < TRAIN[plan].ex[k].s[stageIdx()]) all = false;
+      }
+      if (all) d.gym = true;
+    });
+  });
+
+  $("stageRow").addEventListener("click", function(e) {
+    const b = e.target.closest("[data-stage]");
+    if (!b) return;
+    touch(function() { store.config.stage = +b.dataset.stage; });
+  });
+
   function renderAll() {
     renderDate(); renderPills(); renderNow(); renderTimeline();
-    renderDay(); renderStats(); renderSleep();
+    renderDay(); renderTrain(); renderStats(); renderSleep();
   }
 
   /* ================= 交互 ================= */
