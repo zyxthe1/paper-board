@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>论文 · 作息看板</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="论文看板">
+<meta name="theme-color" content="#f4f1ea">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" type="image/png" href="icon.png">
+<style>
+  :root{
+    --bg:#f4f1ea; --card:#fff; --ink:#1c1c1e; --muted:#77736b;
+    --line:#e6e0d4; --accent:#c2410c; --accent-soft:#fff4ea;
+    --green:#2f6f4e; --green-soft:#eaf3ee; --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",Arial,sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.5;
+    padding:30px 22px 60px;
+  }
+  .wrap{max-width:1080px;margin:0 auto}
+
+  /* ---------- header ---------- */
+  header{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+  .date{font-size:26px;font-weight:650;letter-spacing:-.02em}
+  .date small{display:block;font-size:13px;font-weight:400;color:var(--muted);margin-top:3px;letter-spacing:0}
+  .pills{display:flex;gap:8px;flex-wrap:wrap}
+  .pill{font-size:13px;padding:6px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+  .pill b{color:var(--ink);font-weight:600}
+  .pill.hot{background:var(--accent-soft);border-color:#f3d3ba;color:var(--accent)}
+  .pill.hot b{color:var(--accent)}
+
+  .banner{background:#fff3cd;border:1px solid #eadba0;color:#7a5c00;font-size:13px;padding:9px 14px;border-radius:10px;margin-bottom:14px;display:none}
+
+  /* ---------- week goal ---------- */
+  .goal{display:flex;gap:14px;align-items:baseline;background:#fff;border:1px solid var(--line);
+        border-radius:var(--radius);padding:13px 18px;margin-bottom:18px}
+  .goal .k{font-size:11px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;white-space:nowrap}
+  .goal .v{font-size:15.5px;font-weight:550}
+
+  /* ---------- layout ---------- */
+  main{display:grid;grid-template-columns:1.12fr .88fr;gap:18px;align-items:start}
+  .col{display:flex;flex-direction:column;gap:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px;
+        box-shadow:0 1px 2px rgba(28,28,30,.04)}
+  .card h2{margin:0 0 14px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600}
+
+  /* ---------- now ---------- */
+  .now{background:#1c1c1e;border-color:#1c1c1e;color:#f5f2ec}
+  .now .k{display:flex;align-items:center;gap:8px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#a8a29a}
+  .dot{width:7px;height:7px;border-radius:50%;background:#ea580c;animation:pulse 1.8s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+  .now .name{font-size:27px;font-weight:650;letter-spacing:-.02em;margin:10px 0 2px}
+  .now .range{font-size:13px;color:#a8a29a;font-variant-numeric:tabular-nums}
+  .now .hint{font-size:13px;color:#c9c4bb;margin:12px 0 0}
+  .bar{height:4px;border-radius:2px;background:rgba(255,255,255,.14);margin-top:16px;overflow:hidden}
+  .bar i{display:block;height:100%;background:#ea580c;border-radius:2px;transition:width .6s}
+
+  /* ---------- focus ---------- */
+  .focus-input{width:100%;border:1px solid var(--line);border-radius:9px;padding:11px 13px;font-size:14.5px;
+        font-family:inherit;color:var(--ink);background:#fcfbf8;outline:none}
+  .focus-input:focus{border-color:#c9bfa9;background:#fff}
+  .focus-input::placeholder{color:#a8a29a}
+  .sub{font-size:12px;color:var(--muted);margin:8px 0 0}
+
+  /* ---------- checkin ---------- */
+  .row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid #f1ece2}
+  .row:first-of-type{border-top:none;padding-top:0}
+  .row .lbl{font-size:14.5px;font-weight:500}
+  .row .lbl em{display:block;font-style:normal;font-size:11.5px;color:var(--muted);font-weight:400}
+  .ctl{display:flex;align-items:center;gap:6px}
+  input[type=time]{font-family:inherit;font-size:13.5px;border:1px solid var(--line);border-radius:8px;
+        padding:6px 8px;background:#fcfbf8;color:var(--ink);width:104px;outline:none}
+  input[type=time]:focus{border-color:#c9bfa9;background:#fff}
+  button.ghost{font-family:inherit;font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);
+        background:#fff;color:var(--muted);cursor:pointer;transition:.15s}
+  button.ghost:hover{border-color:#c9bfa9;color:var(--ink)}
+  .toggle{font-family:inherit;font-size:13px;padding:7px 18px;border-radius:999px;border:1px solid var(--line);
+        background:#fff;color:var(--muted);cursor:pointer;transition:.15s;min-width:74px}
+  .toggle:hover{border-color:#c9bfa9}
+  .toggle.on{background:var(--green-soft);border-color:#b9d6c5;color:var(--green);font-weight:600}
+  .stepper{display:flex;align-items:center;gap:2px;background:#fcfbf8;border:1px solid var(--line);border-radius:9px;padding:2px}
+  .stepper button{width:30px;height:28px;border:none;background:transparent;color:var(--muted);font-size:16px;
+        cursor:pointer;border-radius:7px;font-family:inherit;line-height:1}
+  .stepper button:hover{background:#f1ece2;color:var(--ink)}
+  .stepper span{min-width:52px;text-align:center;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+  .stepper span small{font-size:11px;font-weight:400;color:var(--muted)}
+
+  /* ---------- timeline ---------- */
+  .tl{display:flex;flex-direction:column;gap:1px}
+  .tl .t{display:flex;align-items:center;gap:12px;padding:6px 10px;border-radius:8px;font-size:13.5px}
+  .tl .t .tm{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px;width:88px;flex:none}
+  .tl .t .nm{flex:1}
+  .tl .t.past{opacity:.4}
+  .tl .t.cur{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent);font-weight:600}
+  .tl .t.cur .tm{color:var(--accent)}
+
+  /* ---------- stats ---------- */
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat{background:#fcfbf8;border:1px solid #f1ece2;border-radius:11px;padding:12px 14px}
+  .stat .n{font-size:23px;font-weight:650;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.05}
+  .stat .n small{font-size:12px;font-weight:400;color:var(--muted);margin-left:3px}
+  .stat .t{font-size:11.5px;color:var(--muted);margin-top:4px}
+
+  /* ---------- rules ---------- */
+  .rules ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:7px}
+  .rules li{font-size:13.5px;color:#3a3733;padding-left:2px}
+  .rules li::marker{color:var(--accent);font-weight:600}
+
+  /* ---------- sleep table ---------- */
+  .sl{width:100%;border-collapse:collapse;font-size:13px}
+  .sl th{text-align:left;font-weight:500;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+        color:var(--muted);padding:0 0 8px}
+  .sl td{padding:7px 0;border-top:1px solid #f1ece2;font-variant-numeric:tabular-nums}
+  .sl td.d{color:var(--muted)}
+  .sl .ok{color:var(--green);font-weight:600}
+  .sl .bad{color:var(--accent);font-weight:600}
+  .sl .empty{color:#b9b3a8;font-size:12.5px}
+  tr.today td{font-weight:600}
+
+  /* ---------- footer ---------- */
+  footer{display:flex;gap:8px;flex-wrap:wrap;margin-top:26px;align-items:center}
+  footer .sp{flex:1}
+  .set{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--muted)}
+  .set input{font-family:inherit;font-size:12.5px;border:1px solid var(--line);border-radius:8px;
+        padding:4px 7px;background:#fff;color:var(--ink);outline:none}
+  .note{width:100%;margin-top:10px;border:1px solid var(--line);border-radius:9px;padding:10px 12px;
+        font-family:inherit;font-size:13.5px;color:var(--ink);background:#fcfbf8;resize:vertical;min-height:54px;outline:none}
+  .note:focus{border-color:#c9bfa9;background:#fff}
+
+  @media (max-width:880px){
+    body{padding:20px 14px 50px}
+    main{grid-template-columns:1fr}
+    .date{font-size:22px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="banner" id="banner">浏览器禁用了本地存储，记录不会自动保存 —— 请用底部「导出备份」按钮。</div>
+
+  <header>
+    <div class="date" id="dateLine">—</div>
+    <div class="pills">
+      <span class="pill" id="weekPill">第 — 周</span>
+      <span class="pill hot" id="groupPill">距组会 — 天</span>
+      <span class="pill" id="clock">--:--</span>
+    </div>
+  </header>
+
+  <div class="goal">
+    <span class="k">本周目标</span>
+    <span class="v" id="weekGoal">—</span>
+  </div>
+
+  <main>
+    <div class="col">
+
+      <section class="card now">
+        <div class="k"><span class="dot"></span><span id="nowLabel">此刻</span></div>
+        <div class="name" id="nowName">—</div>
+        <div class="range" id="nowRange"></div>
+        <p class="hint" id="nowHint"></p>
+        <div class="bar"><i id="dayBar" style="width:0%"></i></div>
+      </section>
+
+      <section class="card">
+        <h2>今日唯一论文任务</h2>
+        <input class="focus-input" id="focusTask" placeholder="一句话：今天要交出什么？例：写完 claim sheet 的第 2 节">
+        <p class="sub">只有一个。写不出「一句话」说明今天还没有在推进论文。</p>
+      </section>
+
+      <section class="card">
+        <h2>打卡</h2>
+
+        <div class="row">
+          <div class="lbl">起床<em>目标 07:30 · 见光、直接出门</em></div>
+          <div class="ctl">
+            <input type="time" id="wake">
+            <button class="ghost" data-now="wake">此刻</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="lbl">健身<em>两分化 · 早上</em></div>
+          <div class="ctl"><button class="toggle" id="gymBtn">未完成</button></div>
+        </div>
+
+        <div class="row">
+          <div class="lbl">论文实际投入<em>只算真正推进的时间</em></div>
+          <div class="ctl">
+            <div class="stepper">
+              <button id="paperMinus">−</button>
+              <span id="paperVal">0<small>h</small></span>
+              <button id="paperPlus">＋</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="lbl">大模型 1 小时<em>固定时段 15:30</em></div>
+          <div class="ctl"><button class="toggle" id="llmBtn">未完成</button></div>
+        </div>
+
+        <div class="row">
+          <div class="lbl">关电脑<em>目标 22:30</em></div>
+          <div class="ctl">
+            <input type="time" id="shutdown">
+            <button class="ghost" data-now="shutdown">此刻</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="lbl">上床<em>目标 23:00 · 硬指标</em></div>
+          <div class="ctl">
+            <input type="time" id="bed">
+            <button class="ghost" data-now="bed">此刻</button>
+          </div>
+        </div>
+
+        <textarea class="note" id="noteBox" placeholder="今天卡在哪？明天第一件事是什么？（周日复盘用）"></textarea>
+      </section>
+
+      <section class="card rules">
+        <h2>硬规则</h2>
+        <ol>
+          <li>每天第一个工作块只做论文，<b>不读新文章</b></li>
+          <li>读文献必须带着具体问题，限时 45 分钟，读完就停</li>
+          <li>大模型固定在 15:30，到点就停，不侵占论文块</li>
+          <li>22:30 关电脑，充电器放客厅；床只用来睡</li>
+          <li>论文每天都要有能拿出手的产出，哪怕只有一段话</li>
+        </ol>
+      </section>
+
+    </div>
+
+    <div class="col">
+
+      <section class="card">
+        <h2>今天的时间块</h2>
+        <div class="tl" id="timeline"></div>
+      </section>
+
+      <section class="card">
+        <h2>本周</h2>
+        <div class="stats">
+          <div class="stat"><div class="n" id="sPaper">0<small>h</small></div><div class="t">论文投入</div></div>
+          <div class="stat"><div class="n" id="sGym">0<small>次</small></div><div class="t">健身</div></div>
+          <div class="stat"><div class="n" id="sLlm">0<small>天</small></div><div class="t">大模型</div></div>
+          <div class="stat"><div class="n" id="sStreak">0<small>天</small></div><div class="t">早睡连击</div></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>近 7 天作息</h2>
+        <table class="sl">
+          <thead><tr><th>日期</th><th>上床</th><th>起床</th><th>时长</th></tr></thead>
+          <tbody id="sleepBody"></tbody>
+        </table>
+      </section>
+
+    </div>
+  </main>
+
+  <footer>
+    <button class="ghost" id="exportBtn">导出备份</button>
+    <button class="ghost" id="importBtn">导入备份</button>
+    <input type="file" id="fileInput" accept="application/json" hidden>
+    <span class="sp"></span>
+    <label class="set">组会日期 <input type="date" id="groupDate"></label>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ================= 配置 ================= */
+  const DEFAULTS = {
+    groupDate: "2026-12-23",   // 组会死线
+    startDate: "2026-11-02",   // 第 1 周的周一
+    targetBed: "23:00",
+    targetWake: "07:30"
+  };
+
+  const WEEKS = [
+    "锁定 idea：候选收敛到 1 个，写一页 claim sheet",
+    "设计最小可证伪实验，跑通基线",
+    "主实验开跑，拿到第一版结果",
+    "补齐必要对照与消融，结果站得住",
+    "结果定型，确定图与表的结构",
+    "出全部主图，写 Results 草稿",
+    "写 Method + Intro 草稿，组会材料成型",
+    "组会周：彩排一遍，只讲结果不讲计划"
+  ];
+
+  const BLOCKS = [
+    {name:"起床",         s:450,  e:465,  kind:"anchor", hint:"见光，直接出门，别碰手机"},
+    {name:"健身",         s:465,  e:540,  kind:"fit",    hint:"两分化，练完就走"},
+    {name:"早餐",         s:540,  e:570,  kind:"meal",   hint:""},
+    {name:"论文块 1",     s:570,  e:720,  kind:"paper",  hint:"最硬的活：写、推公式、跑实验。不读新文章"},
+    {name:"午饭 + 休息",  s:720,  e:810,  kind:"meal",   hint:""},
+    {name:"论文块 2",     s:810,  e:930,  kind:"paper",  hint:"继续推进，卡住就问具体问题，读文献限时 45 分钟"},
+    {name:"大模型",       s:930,  e:990,  kind:"llm",    hint:"固定 1 小时，到点就停"},
+    {name:"论文块 3 / 缓冲", s:990, e:1080, kind:"paper", hint:"轻活：整理笔记、看结果、补图"},
+    {name:"晚饭",         s:1080, e:1170, kind:"meal",   hint:""},
+    {name:"自由 / 论文轻活", s:1170, e:1290, kind:"free", hint:""},
+    {name:"收尾洗漱",     s:1290, e:1350, kind:"free",   hint:"手机离床，充电器放客厅"},
+    {name:"关电脑",       s:1350, e:1380, kind:"anchor", hint:"屏幕断电"},
+    {name:"上床",         s:1380, e:1440, kind:"anchor", hint:"目标 23:00"}
+  ];
+
+  const KEY = "paper-board-v1";
+
+  /* ================= 工具 ================= */
+  const $ = id => document.getElementById(id);
+  const pad = n => String(n).padStart(2, "0");
+  const toMin = t => { const p = String(t).split(":"); return (+p[0]) * 60 + (+p[1]); };
+  const toHHMM = m => pad(Math.floor(m / 60) % 24) + ":" + pad(Math.round(m) % 60);
+  const ymd = d => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  const todayKey = () => ymd(new Date());
+  const parseYmd = s => { const p = s.split("-"); return new Date(+p[0], +p[1] - 1, +p[2]); };
+  const dayMs = 86400000;
+  const WD = ["周日","周一","周二","周三","周四","周五","周六"];
+
+  /* ================= 存储 ================= */
+  let storageOK = true;
+  try { localStorage.setItem("__pb", "1"); localStorage.removeItem("__pb"); }
+  catch (e) { storageOK = false; }
+
+  function blank() { return { config: Object.assign({}, DEFAULTS), days: {} }; }
+
+  let store;
+  try {
+    const raw = storageOK ? localStorage.getItem(KEY) : null;
+    store = raw ? JSON.parse(raw) : blank();
+    if (!store || typeof store !== "object") store = blank();
+    if (!store.config) store.config = Object.assign({}, DEFAULTS);
+    else store.config = Object.assign({}, DEFAULTS, store.config);
+    if (!store.days || typeof store.days !== "object") store.days = {};
+    // 旧默认组会日期（12/31）升级到新的 12/23；用户手动改成别的日期则不动
+    if (store.config.groupDate === "2026-12-31") store.config.groupDate = DEFAULTS.groupDate;
+  } catch (e) { store = blank(); }
+
+  function save() {
+    if (!storageOK) return;
+    try { localStorage.setItem(KEY, JSON.stringify(store)); }
+    catch (e) { storageOK = false; $("banner").style.display = "block"; }
+  }
+
+  function day(k) {
+    k = k || todayKey();
+    if (!store.days[k] || typeof store.days[k] !== "object") store.days[k] = {};
+    return store.days[k];
+  }
+
+  /* ================= 计算 ================= */
+  function planWeek() {
+    const start = parseYmd(store.config.startDate); start.setHours(0,0,0,0);
+    const t = new Date(); t.setHours(0,0,0,0);
+    const diff = Math.floor((t - start) / dayMs);
+    return Math.max(1, Math.floor(diff / 7) + 1);
+  }
+
+  function daysToGroup() {
+    const g = parseYmd(store.config.groupDate); g.setHours(0,0,0,0);
+    const t = new Date(); t.setHours(0,0,0,0);
+    return Math.round((g - t) / dayMs);
+  }
+
+  function sleepLen(bed, wake) {
+    if (!bed || !wake) return null;
+    const d = ((toMin(wake) - toMin(bed)) % 1440 + 1440) % 1440;
+    return d < 120 ? null : d;
+  }
+
+  function isEarlyBed(bed) {
+    if (!bed) return false;
+    // 上床时间晚于 23:15（含凌晨）视为不达标
+    const m = toMin(bed);
+    return m >= 300 && m <= 23 * 60 + 15;
+  }
+
+  function weekRange() {
+    const w = planWeek();
+    const start = parseYmd(store.config.startDate);
+    start.setDate(start.getDate() + (w - 1) * 7);
+    return [start, new Date(start.getTime() + 6 * dayMs)];
+  }
+
+  function sumWeek() {
+    const [a, b] = weekRange();
+    let paper = 0, gym = 0, llm = 0;
+    for (let t = a.getTime(); t <= b.getTime(); t += dayMs) {
+      const d = store.days[ymd(new Date(t))];
+      if (!d) continue;
+      paper += +d.paperHours || 0;
+      if (d.gym) gym++;
+      if (d.llm) llm++;
+    }
+    return { paper, gym, llm };
+  }
+
+  function streak() {
+    let n = 0;
+    const t = new Date(); t.setHours(0,0,0,0);
+    for (let i = 0; i < 90; i++) {
+      const d = store.days[ymd(new Date(t.getTime() - i * dayMs))];
+      const bed = d && d.bed;
+      if (i === 0 && !bed) continue;   // 今天还没上床，不算断，从昨天算起
+      if (!isEarlyBed(bed)) break;
+      n++;
+    }
+    return n;
+  }
+
+  function currentBlock() {
+    const now = new Date();
+    const m = now.getHours() * 60 + now.getMinutes();
+    for (const b of BLOCKS) if (m >= b.s && m < b.e) return { b, m };
+    const next = BLOCKS.find(b => b.s > m);
+    return { b: null, m, next };
+  }
+
+  /* ================= 渲染 ================= */
+  function setInput(el, v) {
+    if (document.activeElement === el) return;
+    if (el.value !== (v || "")) el.value = v || "";
+  }
+
+  function renderDate() {
+    const d = new Date();
+    $("dateLine").innerHTML = (d.getMonth() + 1) + " 月 " + d.getDate() + " 日　" + WD[d.getDay()] +
+      "<small>目标：23:00 上床 · 07:30 起床</small>";
+  }
+
+  function renderPills() {
+    const w = planWeek();
+    setInput($("groupDate"), store.config.groupDate);
+    $("weekPill").innerHTML = w <= WEEKS.length
+      ? "第 <b>" + w + "</b> 周 / " + WEEKS.length
+      : "组会周已过";
+    const dd = daysToGroup();
+    $("groupPill").innerHTML = dd > 0
+      ? "距组会 <b>" + dd + "</b> 天"
+      : (dd === 0 ? "<b>组会就是今天</b>" : "组会已过 <b>" + (-dd) + "</b> 天");
+    $("weekGoal").textContent = w <= WEEKS.length
+      ? WEEKS[w - 1]
+      : "组会已过 —— 集中精力准备找工作，论文收尾投稿";
+  }
+
+  function renderNow() {
+    const { b, m, next } = currentBlock();
+    if (b) {
+      const pct = Math.max(0, Math.min(100, ((m - b.s) / (b.e - b.s)) * 100));
+      $("nowLabel").textContent = "此刻";
+      $("nowName").textContent = b.name;
+      $("nowRange").textContent = toHHMM(b.s) + " – " + (b.e >= 1440 ? "24:00" : toHHMM(b.e)) +
+        "　剩余 " + (b.e - m) + " 分钟";
+      $("nowHint").textContent = b.hint || "";
+      $("dayBar").style.width = pct.toFixed(1) + "%";
+    } else if (next) {
+      $("nowName").textContent = "空档";
+      $("nowRange").textContent = "接下来 " + toHHMM(next.s) + " · " + next.name;
+      $("nowHint").textContent = "先把下一块的准备做掉，别用刷手机填空档。";
+      $("dayBar").style.width = "0%";
+    } else {
+      $("nowName").textContent = "该睡了";
+      $("nowRange").textContent = "明天 07:30 起床";
+      $("nowHint").textContent = "现在关灯。今天已经结束，明天从健身开始。";
+      $("dayBar").style.width = "100%";
+    }
+    const d = new Date();
+    $("clock").textContent = pad(d.getHours()) + ":" + pad(d.getMinutes());
+  }
+
+  function renderTimeline() {
+    const { b } = currentBlock();
+    const m = new Date().getHours() * 60 + new Date().getMinutes();
+    let html = "";
+    for (const x of BLOCKS) {
+      const cls = x === b ? "cur" : (x.e <= m ? "past" : "");
+      html += '<div class="t ' + cls + '">' +
+        '<span class="tm">' + toHHMM(x.s) + "–" + (x.e >= 1440 ? "24:00" : toHHMM(x.e)) + "</span>" +
+        '<span class="nm">' + x.name + "</span></div>";
+    }
+    $("timeline").innerHTML = html;
+  }
+
+  function renderDay() {
+    const d = day();
+    setInput($("wake"), d.wake);
+    setInput($("shutdown"), d.shutdown);
+    setInput($("bed"), d.bed);
+    setInput($("focusTask"), d.focus);
+    setInput($("noteBox"), d.note);
+    $("paperVal").innerHTML = (Math.round((+d.paperHours || 0) * 10) / 10) + "<small>h</small>";
+
+    const gym = $("gymBtn");
+    gym.classList.toggle("on", !!d.gym);
+    gym.textContent = d.gym ? "已完成" : "未完成";
+
+    const llm = $("llmBtn");
+    llm.classList.toggle("on", !!d.llm);
+    llm.textContent = d.llm ? "已完成" : "未完成";
+  }
+
+  function renderStats() {
+    const w = sumWeek();
+    $("sPaper").innerHTML = (Math.round(w.paper * 10) / 10) + "<small>h</small>";
+    $("sGym").innerHTML = w.gym + "<small>次</small>";
+    $("sLlm").innerHTML = w.llm + "<small>天</small>";
+    $("sStreak").innerHTML = streak() + "<small>天</small>";
+  }
+
+  function renderSleep() {
+    const t = new Date(); t.setHours(0,0,0,0);
+    let html = "";
+    for (let i = 0; i < 7; i++) {
+      const dt = new Date(t.getTime() - i * dayMs);
+      const k = ymd(dt);
+      const d = store.days[k] || {};
+      const len = sleepLen(d.bed, d.wake);
+      const bedCls = d.bed ? (isEarlyBed(d.bed) ? "ok" : "bad") : "";
+      const label = (dt.getMonth() + 1) + "/" + dt.getDate() + " " + WD[dt.getDay()].slice(1);
+      html += '<tr class="' + (i === 0 ? "today" : "") + '">' +
+        '<td class="d">' + label + "</td>" +
+        '<td class="' + bedCls + '">' + (d.bed || "—") + "</td>" +
+        '<td>' + (d.wake || "—") + "</td>" +
+        '<td>' + (len ? Math.floor(len / 60) + "h" + pad(len % 60) : "—") + "</td></tr>";
+    }
+    $("sleepBody").innerHTML = html;
+  }
+
+  function renderAll() {
+    renderDate(); renderPills(); renderNow(); renderTimeline();
+    renderDay(); renderStats(); renderSleep();
+  }
+
+  /* ================= 交互 ================= */
+  function touch(fn) { fn(); save(); renderAll(); }
+
+  ["wake", "shutdown", "bed"].forEach(function(field){
+    const el = $(field);
+    el.addEventListener("change", function(){ touch(function(){ day()[field] = el.value; }); });
+  });
+
+  document.querySelectorAll("[data-now]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      const f = btn.dataset.now;
+      const d = new Date();
+      const v = pad(d.getHours()) + ":" + pad(d.getMinutes());
+      touch(function(){ $(f).value = v; day()[f] = v; });
+    });
+  });
+
+  $("gymBtn").addEventListener("click", function(){ touch(function(){ day().gym = !day().gym; }); });
+  $("llmBtn").addEventListener("click", function(){ touch(function(){ day().llm = !day().llm; }); });
+
+  $("paperPlus").addEventListener("click", function(){
+    touch(function(){ const d = day(); d.paperHours = Math.min(16, (+d.paperHours || 0) + 0.5); });
+  });
+  $("paperMinus").addEventListener("click", function(){
+    touch(function(){ const d = day(); d.paperHours = Math.max(0, (+d.paperHours || 0) - 0.5); });
+  });
+
+  $("focusTask").addEventListener("input", function(){ day().focus = this.value; save(); });
+  $("noteBox").addEventListener("input", function(){ day().note = this.value; save(); });
+
+  $("groupDate").addEventListener("change", function(){
+    if (!this.value) return;
+    store.config.groupDate = this.value;
+    save(); renderPills();
+  });
+
+  $("exportBtn").addEventListener("click", function(){
+    const blob = new Blob([JSON.stringify(store, null, 2)], {type: "application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "paper-board-" + todayKey() + ".json";
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+  });
+
+  $("importBtn").addEventListener("click", function(){ $("fileInput").click(); });
+
+  $("fileInput").addEventListener("change", function(){
+    const f = this.files && this.files[0];
+    if (!f) return;
+    const r = new FileReader();
+    r.onload = function(){
+      try {
+        const obj = JSON.parse(r.result);
+        if (!obj || typeof obj !== "object" || !obj.days) throw new Error("格式不对");
+        if (!confirm("导入会覆盖当前所有记录，确定？")) return;
+        store = obj;
+        store.config = Object.assign({}, DEFAULTS, store.config || {});
+        save(); renderAll();
+      } catch (e) { alert("导入失败：" + e.message); }
+    };
+    r.readAsText(f);
+    this.value = "";
+  });
+
+  /* ================= 启动 ================= */
+  if (!storageOK) $("banner").style.display = "block";
+  renderAll();
+  setInterval(renderNow, 20000);
+  setInterval(function(){ renderNow(); renderTimeline(); }, 60000);
+  document.addEventListener("visibilitychange", function(){ if (!document.hidden) renderAll(); });
+})();
+</script>
+</body>
+</html>
