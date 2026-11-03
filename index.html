@@ -110,7 +110,16 @@
   .stepper span{min-width:52px;text-align:center;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
   .stepper span small{font-size:11px;font-weight:400;color:var(--muted)}
 
+  /* ---------- tabs ---------- */
+  .tabs{display:flex;gap:5px;background:#fff;border:1px solid var(--line);border-radius:12px;
+        padding:4px;margin-bottom:14px}
+  .tabs button{flex:1;font-family:inherit;font-size:14px;font-weight:600;padding:10px 0;
+        border-radius:9px;border:none;background:transparent;color:var(--muted);cursor:pointer;
+        transition:background .15s,color .15s}
+  .tabs button.on{background:#1c1c1e;color:#fff}
+
   /* ---------- training ---------- */
+  #trainCard{max-width:760px}
   .train-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
   .train-top h2{margin:0}
   .train-total{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
@@ -209,11 +218,26 @@
     </div>
   </header>
 
+  <div class="tabs" id="tabs">
+    <button data-tab="check" class="on">打卡</button>
+    <button data-tab="train">训练</button>
+  </div>
+
   <section class="quick" id="quick">
     <button class="qb" data-q="wake">起床<em>未记</em></button>
     <button class="qb" data-q="gym">健身<em>未完成</em></button>
     <button class="qb" data-q="llm">大模型<em>未完成</em></button>
     <button class="qb" data-q="bed">上床<em>未记</em></button>
+  </section>
+
+  <section class="card train" id="trainCard">
+    <div class="train-top">
+      <h2>今日训练</h2>
+      <span class="train-total" id="trainTotal"></span>
+    </div>
+    <div class="train-plan" id="trainPlan"></div>
+    <div class="ex-list" id="exList"></div>
+    <div class="stages" id="stageRow"></div>
   </section>
 
   <div class="goal">
@@ -268,16 +292,6 @@
         </div>
 
         <textarea class="note" id="noteBox" placeholder="今天卡在哪？明天第一件事是什么？（周日复盘用）"></textarea>
-      </section>
-
-      <section class="card train">
-        <div class="train-top">
-          <h2>今日训练</h2>
-          <span class="train-total" id="trainTotal"></span>
-        </div>
-        <div class="train-plan" id="trainPlan"></div>
-        <div class="ex-list" id="exList"></div>
-        <div class="stages" id="stageRow"></div>
       </section>
 
       <section class="card">
@@ -577,7 +591,9 @@
       el.querySelector("em").textContent = text;
     };
     set("wake", d.wake || "未记", !!d.wake);
-    set("gym", d.gym ? "已完成" : "未完成", !!d.gym);
+    const tp = trainProgress();
+    const gymTxt = d.gym ? "已完成" : (tp && tp.got ? tp.got + "/" + tp.tot + " 组" : "未完成");
+    set("gym", gymTxt, !!d.gym);
     set("llm", d.llm ? "已完成" : "未完成", !!d.llm);
     set("bed", d.bed || "未记", !!d.bed);
   }
@@ -609,7 +625,6 @@
     $("sleepBody").innerHTML = html;
   }
 
-
   /* ================= 训练计划 ================= */
   const TRAIN = {
     U: { name: "U · 胸 / 背 / 肩", days: "周一 / 周四", ex: [
@@ -640,6 +655,34 @@
     if (wd === 2 || wd === 5) return "L";
     return "";
   }
+
+  function trainProgress() {
+    const plan = todayPlan();
+    if (!plan) return null;
+    const st = stageIdx();
+    const done = day().sets || {};
+    let got = 0, tot = 0;
+    for (let i = 0; i < TRAIN[plan].ex.length; i++) {
+      const t = TRAIN[plan].ex[i].s[st];
+      tot += t;
+      got += Math.min(t, +done[i] || 0);
+    }
+    return { plan: plan, got: got, tot: tot };
+  }
+
+  function renderTabs() {
+    const tab = store.tab === "train" ? "train" : "check";
+    const btns = document.querySelectorAll("[data-tab]");
+    for (let i = 0; i < btns.length; i++) btns[i].classList.toggle("on", btns[i].dataset.tab === tab);
+    $("quick").style.display = tab === "check" ? "" : "none";
+    $("trainCard").style.display = tab === "train" ? "" : "none";
+  }
+
+  $("tabs").addEventListener("click", function(e) {
+    const b = e.target.closest("[data-tab]");
+    if (!b) return;
+    touch(function() { store.tab = b.dataset.tab; });
+  });
 
   function renderStages() {
     const st = stageIdx();
@@ -722,7 +765,7 @@
 
   function renderAll() {
     renderDate(); renderPills(); renderNow(); renderTimeline();
-    renderDay(); renderTrain(); renderStats(); renderSleep();
+    renderDay(); renderTabs(); renderTrain(); renderStats(); renderSleep();
   }
 
   /* ================= 交互 ================= */
